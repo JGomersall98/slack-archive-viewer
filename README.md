@@ -14,7 +14,7 @@ Make sure the `data` folder is at the top level of the project alongside folders
 
 The structure for the data folder is as followed, with the raw dump files.
 
-`data/<some export folder>/<random dump name folder>/<.json files>`
+`data/<some export folder>/<random dump name folder>/<.json files>` (you should not need to alter this)
 
 ---
 
