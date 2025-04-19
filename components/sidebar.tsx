@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { Search, Hash, MessageSquare, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 type Channel = {
   id: string
@@ -51,7 +52,7 @@ export default function Sidebar() {
   const filteredDms = dms.filter((dm) => dm.displayName.toLowerCase().includes(filter.toLowerCase()))
 
   return (
-    <div className="w-60 bg-[#3F0E40] text-white flex flex-col h-full">
+    <div className="w-60 bg-[#3F0E40] dark:bg-[#19171D] text-white flex flex-col h-full">
       <div className="p-3 border-b border-[#522653] flex items-center justify-between">
         <h1 className="font-bold text-lg">Slack Archive</h1>
       </div>
@@ -141,12 +142,15 @@ export default function Sidebar() {
       </div>
 
       <div className="p-3 border-t border-[#522653]">
-        <Link href="/search">
-          <Button variant="ghost" className="w-full justify-start text-gray-300 hover:text-white hover:bg-[#522653]">
-            <Search className="h-4 w-4 mr-2" />
-            <span>Search Archive</span>
-          </Button>
-        </Link>
+        <div className="flex items-center justify-between mb-2">
+          <Link href="/search" className="flex-1">
+            <Button variant="ghost" className="w-full justify-start text-gray-300 hover:text-white hover:bg-[#522653]">
+              <Search className="h-4 w-4 mr-2" />
+              <span>Search Archive</span>
+            </Button>
+          </Link>
+          <ThemeToggle />
+        </div>
       </div>
     </div>
   )

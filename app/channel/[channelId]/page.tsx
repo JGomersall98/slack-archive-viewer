@@ -1,6 +1,6 @@
 import { Hash } from "lucide-react"
 import { getChannelMessages, getChannelInfo } from "@/lib/data"
-import MessageList from "./MessageList"  // <-- Import the client component
+import MessageList from "./MessageList" // <-- Import the client component
 
 interface ChannelPageProps {
   params: {
@@ -36,7 +36,12 @@ export default async function ChannelPage({ params }: ChannelPageProps) {
         Use key={channelId} to ensure a re-mount if user clicks 
         another channel from the sidebar (so it auto-scrolls again).
       */}
-      <MessageList key={channelId} channelId={channelId} messagesByDate={messagesByDate} />
+      <MessageList
+        key={channelId}
+        channelId={channelId}
+        messagesByDate={messagesByDate}
+        channelName={channelInfo?.name || "Unknown Channel"}
+      />
     </div>
   )
 }

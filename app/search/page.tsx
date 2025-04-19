@@ -56,27 +56,47 @@ export default function SearchPage() {
         </Button>
       </div>
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+          {error}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         {results.length > 0 ? (
           <div className="space-y-4">
             {results.map((result) => (
-              <div key={result.ts} className="border rounded-md overflow-hidden">
-                <div className="bg-gray-50 p-2 border-b">
+              <div
+                key={result.ts}
+                className="border rounded-md overflow-hidden hover:shadow-md transition-shadow dark:border-gray-700"
+              >
+                <div className="bg-gray-50 p-2 border-b dark:bg-gray-800 dark:border-gray-700">
                   <Link
-                    href={result.channelType === "channel" ? `/channel/${result.channelId}` : `/dm/${result.channelId}`}
-                    className="text-sm text-[#1264A3] hover:underline"
+                    href={
+                      result.channelType === "channel"
+                        ? `/channel/${result.channelId}?messageTs=${result.ts}`
+                        : `/dm/${result.channelId}?messageTs=${result.ts}`
+                    }
+                    className="text-sm text-[#1264A3] hover:underline dark:text-[#89b3d6]"
                   >
-                    {result.channelName}
+                    {result.channelName} • {new Date(Number.parseFloat(result.ts) * 1000).toLocaleString()}
                   </Link>
                 </div>
-                <Message message={result} showDate={false} />
+                <Link
+                  href={
+                    result.channelType === "channel"
+                      ? `/channel/${result.channelId}?messageTs=${result.ts}`
+                      : `/dm/${result.channelId}?messageTs=${result.ts}`
+                  }
+                  className="block hover:bg-gray-50 dark:hover:bg-gray-800/50 p-2"
+                >
+                  <Message message={result} showDate={false} />
+                </Link>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-center text-gray-500 mt-8">
+          <div className="text-center text-gray-500 mt-8 dark:text-gray-400">
             {query ? "No results found. Try a different search term." : "Enter a search term to find messages."}
           </div>
         )}

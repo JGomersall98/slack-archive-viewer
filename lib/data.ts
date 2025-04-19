@@ -23,27 +23,37 @@ export async function getChannelList(): Promise<ChannelInfo[]> {
     const channels: ChannelInfo[] = []
 
     for (const dir of directories) {
-      // Extract channel name from directory name
-      // Format: slackdump_YYYYMMDD_HHMMSS (name)
-      const match = dir.match(/slackdump_\d+_\d+\s*$$(.+)$$/)
-      const displayName = match ? match[1].trim() : dir
+      const dirPath = path.join(DATA_DIR, dir)
 
-      // Determine if it's a channel or DM based on the first character of the inner directory
-      const innerDirs = fs
-        .readdirSync(path.join(DATA_DIR, dir), { withFileTypes: true })
-        .filter((dirent) => dirent.isDirectory())
-        .map((dirent) => dirent.name)
+      // Check if there's a subdirectory with the same name (e.g., dc-developers/dc-developers/)
+      const sameNameSubdir = fs.existsSync(path.join(dirPath, dir))
 
-      if (innerDirs.length > 0) {
-        const firstInnerDir = innerDirs[0]
-        const type = firstInnerDir.startsWith("C") ? "channel" : "dm"
-
+      if (sameNameSubdir) {
+        // This is a case like dc-developers/dc-developers/
         channels.push({
-          id: firstInnerDir,
-          name: displayName.toLowerCase().replace(/\s+/g, "-"),
-          displayName,
-          type,
+          id: dir, // Use the directory name as the channel ID
+          name: dir.toLowerCase().replace(/\s+/g, "-"),
+          displayName: dir,
+          type: "channel", // Assume it's a channel
         })
+      } else {
+        // Check for subdirectories (original behavior)
+        const innerDirs = fs
+          .readdirSync(dirPath, { withFileTypes: true })
+          .filter((dirent) => dirent.isDirectory())
+          .map((dirent) => dirent.name)
+
+        if (innerDirs.length > 0) {
+          const firstInnerDir = innerDirs[0]
+          const type = firstInnerDir.startsWith("C") ? "channel" : "dm"
+
+          channels.push({
+            id: firstInnerDir,
+            name: dir.toLowerCase().replace(/\s+/g, "-"),
+            displayName: dir,
+            type,
+          })
+        }
       }
     }
 
@@ -71,49 +81,66 @@ export async function getChannelMessages(channelId: string): Promise<MessageType
       return []
     }
 
-    // Find the parent directory
-    const directories = fs
-      .readdirSync(DATA_DIR, { withFileTypes: true })
-      .filter((dirent) => dirent.isDirectory())
-      .map((dirent) => dirent.name)
+    let channelDir: string
 
-    let parentDir = ""
-    for (const dir of directories) {
-      const innerDirs = fs
-        .readdirSync(path.join(DATA_DIR, dir), { withFileTypes: true })
+    // Check if this is a case where the folder structure is parent_dir/parent_dir/<.json files>
+    if (fs.existsSync(path.join(DATA_DIR, channelId, channelId))) {
+      channelDir = path.join(DATA_DIR, channelId, channelId)
+    } else {
+      // Find the parent directory (original behavior)
+      const directories = fs
+        .readdirSync(DATA_DIR, { withFileTypes: true })
         .filter((dirent) => dirent.isDirectory())
         .map((dirent) => dirent.name)
 
-      if (innerDirs.includes(channelId)) {
-        parentDir = dir
-        break
-      }
-    }
+      let parentDir = ""
+      for (const dir of directories) {
+        const innerDirs = fs
+          .readdirSync(path.join(DATA_DIR, dir), { withFileTypes: true })
+          .filter((dirent) => dirent.isDirectory())
+          .map((dirent) => dirent.name)
 
-    if (!parentDir) {
-      return []
+        if (innerDirs.includes(channelId)) {
+          parentDir = dir
+          break
+        }
+      }
+
+      if (!parentDir) {
+        return []
+      }
+
+      channelDir = path.join(DATA_DIR, parentDir, channelId)
     }
 
     // Read all JSON files in the channel directory
-    const channelDir = path.join(DATA_DIR, parentDir, channelId)
     const jsonFiles = fs.readdirSync(channelDir).filter((file) => file.endsWith(".json"))
 
     let allMessages: MessageType[] = []
 
     for (const file of jsonFiles) {
-      const filePath = path.join(channelDir, file)
-      const fileContent = fs.readFileSync(filePath, "utf-8")
-      const messages: MessageType[] = JSON.parse(fileContent)
+      try {
+        const filePath = path.join(channelDir, file)
+        const fileContent = fs.readFileSync(filePath, "utf-8")
 
-      // Add channel info to each message
-      const messagesWithChannel = messages.map((msg) => ({
-        ...msg,
-        channelId,
-        channelName: channelInfo.displayName,
-        channelType: channelInfo.type,
-      }))
+        // Trim any whitespace or unexpected characters at the end of the file
+        const cleanedContent = fileContent.trim()
 
-      allMessages = [...allMessages, ...messagesWithChannel]
+        const messages: MessageType[] = JSON.parse(cleanedContent)
+
+        // Add channel info to each message
+        const messagesWithChannel = messages.map((msg) => ({
+          ...msg,
+          channelId,
+          channelName: channelInfo.displayName,
+          channelType: channelInfo.type,
+        }))
+
+        allMessages = [...allMessages, ...messagesWithChannel]
+      } catch (fileError) {
+        console.error(`Error parsing JSON file ${file}:`, fileError)
+        // Continue with other files even if one fails
+      }
     }
 
     // Sort messages by timestamp (newest first)

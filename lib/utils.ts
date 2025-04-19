@@ -23,3 +23,12 @@ export function formatDate(date: Date): string {
     })
   }
 }
+
+export function formatTimestamp(timestamp: string): string {
+  const date = new Date(Number.parseFloat(timestamp) * 1000)
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
+  })
+}

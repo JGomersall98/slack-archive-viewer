@@ -13,27 +13,29 @@ interface MessageContentProps {
 function renderSubElements(elements: any[]) {
   return elements.map((subElement: any, idx: number) => {
     if (subElement.type === "text") {
-      return <span key={idx}>{subElement.text}</span>
-    } 
-    else if (subElement.type === "link") {
+      return (
+        <span key={idx} className="dark:text-white">
+          {subElement.text}
+        </span>
+      )
+    } else if (subElement.type === "link") {
       return (
         <a
           key={idx}
           href={subElement.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[#1264A3] hover:underline inline-flex items-center"
+          className="text-[#1264A3] hover:underline inline-flex items-center dark:text-[#89b3d6]"
         >
           {subElement.text || subElement.url}
           <ExternalLink className="h-3 w-3 ml-0.5" />
         </a>
       )
-    } 
-    else if (subElement.type === "emoji") {
+    } else if (subElement.type === "emoji") {
       // e.g. { type: "emoji", name: "drooling_face", unicode: "1f924" }
       if (subElement.unicode) {
         // Convert hex code to native emoji
-        const codepoint = parseInt(subElement.unicode, 16)
+        const codepoint = Number.parseInt(subElement.unicode, 16)
         const nativeEmoji = String.fromCodePoint(codepoint)
         return <span key={idx}>{nativeEmoji}</span>
       } else {
@@ -60,18 +62,14 @@ export default function MessageContent({ message }: MessageContentProps) {
                 {block.elements.map((element: any, elementIndex: number) => {
                   // "rich_text_section" => normal text + links + emojis
                   if (element.type === "rich_text_section") {
-                    return (
-                      <div key={elementIndex}>
-                        {renderSubElements(element.elements || [])}
-                      </div>
-                    )
+                    return <div key={elementIndex}>{renderSubElements(element.elements || [])}</div>
                   }
                   // "rich_text_preformatted" => code blocks
                   else if (element.type === "rich_text_preformatted") {
                     return (
                       <pre
                         key={elementIndex}
-                        className="bg-gray-100 p-2 rounded text-sm overflow-auto"
+                        className="bg-gray-100 p-2 rounded text-sm overflow-auto dark:bg-gray-800 dark:text-gray-200"
                       >
                         {renderSubElements(element.elements || [])}
                       </pre>
@@ -82,7 +80,7 @@ export default function MessageContent({ message }: MessageContentProps) {
                     return (
                       <blockquote
                         key={elementIndex}
-                        className="border-l-4 border-gray-300 pl-3 ml-1 text-sm text-gray-700"
+                        className="border-l-4 border-gray-300 pl-3 ml-1 text-sm text-gray-700 dark:border-gray-600 dark:text-gray-400"
                       >
                         {renderSubElements(element.elements || [])}
                       </blockquote>
@@ -98,12 +96,10 @@ export default function MessageContent({ message }: MessageContentProps) {
             return (
               <div key={blockIndex} className="my-2">
                 {block.title?.type === "plain_text" && (
-                  <div className="text-sm text-gray-600 mb-1">
-                    {block.title.text}
-                  </div>
+                  <div className="text-sm text-gray-600 mb-1 dark:text-gray-300">{block.title.text}</div>
                 )}
                 <img
-                  src={block.image_url}
+                  src={block.image_url || "/placeholder.svg"}
                   alt={block.alt_text || ""}
                   className="max-w-xs rounded shadow"
                 />
@@ -115,7 +111,7 @@ export default function MessageContent({ message }: MessageContentProps) {
             return (
               <div
                 key={blockIndex}
-                className="flex items-center text-xs text-gray-500 space-x-2 mt-1"
+                className="flex items-center text-xs text-gray-500 space-x-2 mt-1 dark:text-gray-400"
               >
                 {block.elements?.map((contextEl: any, ctxIdx: number) => {
                   if (contextEl.type === "mrkdwn") {
@@ -125,7 +121,7 @@ export default function MessageContent({ message }: MessageContentProps) {
                     return (
                       <img
                         key={ctxIdx}
-                        src={contextEl.image_url}
+                        src={contextEl.image_url || "/placeholder.svg"}
                         alt={contextEl.alt_text || ""}
                         className="h-4 w-4"
                       />
@@ -145,7 +141,7 @@ export default function MessageContent({ message }: MessageContentProps) {
   // 2) If no blocks, fallback to top-level text
   //    plus check for `files` (like images in Slack exports)
   return (
-    <div className="whitespace-pre-wrap">
+    <div className="whitespace-pre-wrap dark:text-white">
       {text}
 
       {/* If the message has file attachments, let's display them */}
@@ -156,20 +152,16 @@ export default function MessageContent({ message }: MessageContentProps) {
             if (file.mimetype?.startsWith("image/")) {
               // We'll build a local url to your new route:
               // e.g. /api/files?userDir=Matthew%20Wray&id=F08LFDFAMFY&filename=8D31F774-CD63-4CEB-BB39-E3A36BA701C3.jpg
-              // 
+              //
               // But you need some way to figure out "userDir" from the message user,
-              // or from your directory structure. 
+              // or from your directory structure.
               // For now, let's guess we store the user's real_name in userDir:
               const userDir = encodeURIComponent(message.user_profile?.real_name ?? "Unknown")
               const routeUrl = `/api/files?userDir=${userDir}&id=${file.id}&filename=${encodeURIComponent(file.name)}`
 
               return (
                 <div key={file.id}>
-                  <img
-                    src={routeUrl}
-                    alt={file.name}
-                    className="max-w-xs rounded shadow"
-                  />
+                  <img src={routeUrl || "/placeholder.svg"} alt={file.name} className="max-w-xs rounded shadow" />
                 </div>
               )
             }

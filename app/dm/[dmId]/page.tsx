@@ -1,6 +1,6 @@
 import { MessageSquare } from "lucide-react"
 import { getChannelMessages, getChannelInfo } from "@/lib/data"
-import MessageList from "./MessageList"  // <-- Import the client component
+import MessageList from "./MessageList" // <-- Import the client component
 
 interface DmPageProps {
   params: {
@@ -35,7 +35,12 @@ export default async function DmPage({ params }: DmPageProps) {
         Pass the grouped messages to the client component.
         Use key={dmId} to re-mount on each new DM click.
       */}
-      <MessageList key={dmId} dmId={dmId} messagesByDate={messagesByDate} />
+      <MessageList
+        key={dmId}
+        dmId={dmId}
+        messagesByDate={messagesByDate}
+        dmName={channelInfo?.displayName || "Direct Message"}
+      />
     </div>
   )
 }

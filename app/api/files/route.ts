@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const userDir = searchParams.get("userDir") // e.g. "Matthew Wray"
-    const fileId = searchParams.get("id")       // e.g. "F08LFDFAMFY"
+    const fileId = searchParams.get("id") // e.g. "F08LFDFAMFY"
     const filename = searchParams.get("filename") // e.g. "8D31F774-CD63-4CEB-BB39-E3A36BA701C3.jpg"
 
     if (!userDir || !fileId || !filename) {
@@ -16,14 +16,7 @@ export async function GET(request: Request) {
 
     // Build the absolute path to the local file
     // e.g. data/Matthew Wray/__uploads/F08LFDFAMFY/8D31F774-CD63-4CEB-BB39-E3A36BA701C3.jpg
-    const filePath = path.join(
-      process.cwd(),
-      "data",
-      userDir,
-      "__uploads",
-      fileId,
-      filename
-    )
+    const filePath = path.join(process.cwd(), "data", userDir, "__uploads", fileId, filename)
 
     // Check if file exists
     if (!fs.existsSync(filePath)) {

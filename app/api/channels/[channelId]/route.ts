@@ -1,15 +1,17 @@
-import { getChannelMessages, getChannelInfo } from "@/lib/data"
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { getChannelInfo } from "@/lib/data"
 
-export async function GET(request: Request, { params }: { params: { channelId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: { channelId: string } }) {
   try {
-    const { channelId } = params
-    const messages = await getChannelMessages(channelId)
-    const channelInfo = await getChannelInfo(channelId)
+    const channelInfo = await getChannelInfo(params.channelId)
 
-    return NextResponse.json({ messages, channelInfo })
+    if (!channelInfo) {
+      return NextResponse.json({ error: "Channel not found" }, { status: 404 })
+    }
+
+    return NextResponse.json(channelInfo)
   } catch (error) {
-    console.error(`Error fetching channel ${params.channelId}:`, error)
-    return NextResponse.json({ error: "Failed to fetch channel data" }, { status: 500 })
+    console.error("Error fetching channel info:", error)
+    return NextResponse.json({ error: "Failed to fetch channel info" }, { status: 500 })
   }
 }
