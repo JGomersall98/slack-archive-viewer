@@ -12,6 +12,10 @@ Unzip all of your exported Slack channel and direct message folders. Then, place
 
 Make sure the `data` folder is at the top level of the project alongside folders like `app`, `components`, etc.
 
+The structure for the data folder is as followed, with the raw dump files.
+
+data/<some export folder>/<random dump name folder>/<.json files>
+
 ---
 
 ### 2. Start the Application
