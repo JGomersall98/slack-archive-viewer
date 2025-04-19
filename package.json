@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "prd": "npm install --legacy-peer-deps && npm run build && npm run start"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
