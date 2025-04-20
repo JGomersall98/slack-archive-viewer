@@ -27,6 +27,7 @@
 
     To make startup even easier, create a `.bat` file like this:
 
+    ```bat
     cd /d "C:\path\to\slack-archive-viewer"
     npm run prd
     start http://localhost:3000
