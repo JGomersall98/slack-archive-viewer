@@ -6,7 +6,7 @@ import fs from "fs"
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const userDir = searchParams.get("userDir") // e.g. "Matthew Wray"
+    const userDir = searchParams.get("userDir") // e.g. "Matthew Wray" or "team-dwp-support"
     const fileId = searchParams.get("id") // e.g. "F08LFDFAMFY"
     const filename = searchParams.get("filename") // e.g. "8D31F774-CD63-4CEB-BB39-E3A36BA701C3.jpg"
 
@@ -15,11 +15,30 @@ export async function GET(request: Request) {
     }
 
     // Build the absolute path to the local file
-    // e.g. data/Matthew Wray/__uploads/F08LFDFAMFY/8D31F774-CD63-4CEB-BB39-E3A36BA701C3.jpg
-    const filePath = path.join(process.cwd(), "data", userDir, "__uploads", fileId, filename)
+    // Try multiple possible paths to find the file
+    const possiblePaths = [
+      // Standard user path
+      path.join(process.cwd(), "data", userDir, "__uploads", fileId, filename),
+      // Channel path
+      path.join(process.cwd(), "data", userDir, "_uploads", fileId, filename),
+      // Alternative channel path
+      path.join(process.cwd(), "data", userDir, userDir, "_uploads", fileId, filename),
+      // Another possible path structure
+      path.join(process.cwd(), "data", userDir, userDir, "__uploads", fileId, filename),
+    ]
 
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
+    // Find the first path that exists
+    let filePath = null
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(possiblePath)) {
+        filePath = possiblePath
+        break
+      }
+    }
+
+    // If no valid path found
+    if (!filePath) {
+      console.error(`File not found. Tried paths:`, possiblePaths)
       return NextResponse.json({ error: "File not found" }, { status: 404 })
     }
 
