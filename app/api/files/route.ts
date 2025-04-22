@@ -22,6 +22,7 @@ export async function GET(request: Request) {
 
       // different type of export
       path.join(process.cwd(), "data", userDir, "attachments", fileId, filename),
+      path.join(process.cwd(), "data", userDir, userDir, "attachments", filename),
 
       // Channel paths
       path.join(process.cwd(), "data", userDir, userDir, "_uploads", fileId, filename),
