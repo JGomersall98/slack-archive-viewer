@@ -94,7 +94,6 @@ export async function GET(request: Request) {
           }
         } else {
           filePath = possiblePath
-          console.log(`Found file: ${filePath}`)
           break
         }
       }
