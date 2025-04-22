@@ -3,32 +3,25 @@ import path from "path"
 import fs from "fs"
 import { findFilesByIdInData } from "@/lib/file-utils"
 
-// GET /api/files?userDir=Matthew%20Wray&id=F08LFDFAMFY&filename=8D31F774-CD63-4CEB-BB39-E3A36BA701C3.jpg
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const userDir = searchParams.get("userDir") || "Unknown" // e.g. "Matthew Wray" or "team-dwp-support"
-    const channelId = searchParams.get("channelId") || "" // The channel/DM ID for additional path options
-    const fileId = searchParams.get("id") || "" // e.g. "F08LFDFAMFY"
-    const filename = searchParams.get("filename") || "" // e.g. "8D31F774-CD63-4CEB-BB39-E3A36BA701C3.jpg"
+    const userDir = searchParams.get("userDir") || "Unknown"
+    const channelId = searchParams.get("channelId") || ""
+    const fileId = searchParams.get("id") || ""
+    const filename = searchParams.get("filename") || ""
 
     if (!fileId) {
       return NextResponse.json({ error: "Missing file ID" }, { status: 400 })
     }
 
-    // Debug info about what we're looking for
-    console.log(`Looking for file with:`)
-    console.log(`- userDir: ${userDir}`)
-    console.log(`- channelId: ${channelId}`)
-    console.log(`- fileId: ${fileId}`)
-    console.log(`- filename: ${filename}`)
-
-    // Build the absolute path to the local file
-    // Try multiple possible paths to find the file
     const possiblePaths = [
       // Standard user paths
       path.join(process.cwd(), "data", userDir, "__uploads", fileId, filename),
       path.join(process.cwd(), "data", userDir, "_uploads", fileId, filename),
+
+      // different type of export
+      path.join(process.cwd(), "data", userDir, "attachments", fileId, filename),
 
       // Channel paths
       path.join(process.cwd(), "data", userDir, userDir, "_uploads", fileId, filename),
