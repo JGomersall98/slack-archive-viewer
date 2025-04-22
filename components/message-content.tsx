@@ -1,7 +1,9 @@
 "use client"
 
 import { ExternalLink } from "lucide-react"
+import { useState } from "react"
 import type { MessageType } from "@/lib/types"
+import { usePathname } from "next/navigation"
 
 interface MessageContentProps {
   message: MessageType
@@ -49,6 +51,75 @@ function renderSubElements(elements: any[]) {
 
 export default function MessageContent({ message }: MessageContentProps) {
   const { text, blocks, files } = message
+  const pathname = usePathname()
+  const [imageError, setImageError] = useState<Record<string, boolean>>({})
+
+  // Extract conversation directory from the URL path
+  const getConversationNameFromPath = () => {
+    // For DMs: /dm/[dmId]
+    // For channels: /channel/[channelId]
+
+    try {
+      const parts = pathname.split("/")
+      const type = parts[1] // "dm" or "channel"
+      const id = parts[2] // the ID
+
+      if (type === "dm") {
+        // Try to get DM name from message
+        if (message.dmName) {
+          return message.dmName
+        }
+
+        // Try to get from channelName (sometimes used for DMs)
+        if (message.channelName) {
+          return message.channelName
+        }
+
+        // Try to extract from the URL - this won't work directly
+        // but at least we can log what we're looking for
+        console.log(`Looking for DM with ID: ${id}`)
+      } else if (type === "channel") {
+        // For channels, use the channel name if available
+        if (message.channelName) {
+          return message.channelName
+        }
+        console.log(`Looking for channel with ID: ${id}`)
+      }
+    } catch (e) {
+      console.error("Error parsing path:", e)
+    }
+
+    return null
+  }
+
+  // Function to determine the correct directory for file access
+  const getFileDirectory = () => {
+    // Get the conversation name from the path
+    const conversationName = getConversationNameFromPath()
+
+    // If we have a conversation name, use that
+    if (conversationName) {
+      return encodeURIComponent(conversationName)
+    }
+
+    // If this is a channel message, use the channel name
+    if (message.channelType === "channel" && message.channelName) {
+      return encodeURIComponent(message.channelName)
+    }
+
+    // Try to use other fields from the message
+    if (message.dmName) {
+      return encodeURIComponent(message.dmName)
+    }
+
+    // Last resort: use user's name or Unknown
+    return encodeURIComponent(message.user_profile?.real_name ?? "Unknown")
+  }
+
+  // Handle image loading errors
+  const handleImageError = (fileId: string) => {
+    setImageError((prev) => ({ ...prev, [fileId]: true }))
+  }
 
   // 1) Render Slack "blocks" if present
   if (blocks && blocks.length > 0) {
@@ -102,6 +173,10 @@ export default function MessageContent({ message }: MessageContentProps) {
                   src={block.image_url || "/placeholder.svg"}
                   alt={block.alt_text || ""}
                   className="max-w-xs rounded shadow"
+                  onError={(e) => {
+                    e.currentTarget.src = "/abstract-geometric-shapes.png"
+                    e.currentTarget.alt = "Image unavailable"
+                  }}
                 />
               </div>
             )
@@ -124,6 +199,9 @@ export default function MessageContent({ message }: MessageContentProps) {
                         src={contextEl.image_url || "/placeholder.svg"}
                         alt={contextEl.alt_text || ""}
                         className="h-4 w-4"
+                        onError={(e) => {
+                          e.currentTarget.src = "/placeholder.svg?height=16&width=16"
+                        }}
                       />
                     )
                   }
@@ -150,18 +228,35 @@ export default function MessageContent({ message }: MessageContentProps) {
           {files.map((file: any) => {
             // Only display images if it's e.g. jpg/png/gif
             if (file.mimetype?.startsWith("image/")) {
-              // We'll build a local url to your new route:
-              // e.g. /api/files?userDir=Matthew%20Wray&id=F08LFDFAMFY&filename=8D31F774-CD63-4CEB-BB39-E3A36BA701C3.jpg
-              //
-              // But you need some way to figure out "userDir" from the message user,
-              // or from your directory structure.
-              // For now, let's guess we store the user's real_name in userDir:
-              const userDir = encodeURIComponent(message.user_profile?.real_name ?? "Unknown")
-              const routeUrl = `/api/files?userDir=${userDir}&id=${file.id}&filename=${encodeURIComponent(file.name)}`
+              // Get the appropriate directory for this file
+              const dirPath = getFileDirectory()
+
+              // Get the channel ID from the pathname for additional routing
+              const channelId = pathname.split("/").pop() || ""
+
+              // Create multiple possible routes to try
+              const routeUrl = `/api/files?userDir=${dirPath}&id=${file.id}&filename=${encodeURIComponent(file.name)}&channelId=${channelId}`
+
+              // If this image already errored, show placeholder
+              if (imageError[file.id]) {
+                return (
+                  <div key={file.id} className="relative">
+                    <img src="/abstract-geometric-shapes.png" alt="Image unavailable" className="max-w-xs rounded shadow" />
+                    <div className="absolute bottom-2 left-2 text-xs text-white bg-black/50 px-2 py-1 rounded">
+                      {file.name}
+                    </div>
+                  </div>
+                )
+              }
 
               return (
-                <div key={file.id}>
-                  <img src={routeUrl || "/placeholder.svg"} alt={file.name} className="max-w-xs rounded shadow" />
+                <div key={file.id} className="relative">
+                  <img
+                    src={routeUrl || "/placeholder.svg"}
+                    alt={file.name}
+                    className="max-w-xs rounded shadow"
+                    onError={() => handleImageError(file.id)}
+                  />
                 </div>
               )
             }
