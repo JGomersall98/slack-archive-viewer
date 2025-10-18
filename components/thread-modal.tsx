@@ -10,12 +10,16 @@ interface ThreadModalProps {
   parentMessage: any
   threadReplies: any[]
   channelName: string
+  // When provided, the modal should scroll to and highlight this reply inside the thread
+  targetReplyTs?: string
 }
 
-export default function ThreadModal({ isOpen, onClose, parentMessage, threadReplies, channelName }: ThreadModalProps) {
+export default function ThreadModal({ isOpen, onClose, parentMessage, threadReplies, channelName, targetReplyTs }: ThreadModalProps) {
   const [width, setWidth] = useState(384) // Default width (w-96)
   const [isResizing, setIsResizing] = useState(false)
   const resizeRef = useRef<HTMLDivElement>(null)
+  // Container for scrolling inside modal
+  const contentRef = useRef<HTMLDivElement>(null)
 
   // Handle mouse resize
   useEffect(() => {
@@ -70,6 +74,26 @@ export default function ThreadModal({ isOpen, onClose, parentMessage, threadRepl
     return () => window.removeEventListener('resize', handleResize)
   }, [width])
 
+  // Auto-scroll to a specific reply when the modal opens or replies change
+  useEffect(() => {
+    if (!isOpen || !targetReplyTs) return
+
+    // Allow time for replies to render
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`message-${targetReplyTs}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        // Temporary highlight
+        el.classList.add('bg-yellow-50', 'dark:bg-yellow-900')
+        setTimeout(() => {
+          el.classList.remove('bg-yellow-50', 'dark:bg-yellow-900')
+        }, 2000)
+      }
+    }, 100)
+
+    return () => clearTimeout(timer)
+  }, [isOpen, targetReplyTs, threadReplies])
+
   if (!isOpen) return null
 
   return (
@@ -104,8 +128,9 @@ export default function ThreadModal({ isOpen, onClose, parentMessage, threadRepl
           >
             <X className="h-5 w-5" />
           </button>
-        </div>        {/* Thread content */}
-        <div className="flex-1 overflow-y-auto p-4 bg-white dark:bg-gray-800">
+        </div>
+        {/* Thread content */}
+        <div ref={contentRef} className="flex-1 overflow-y-auto p-4 bg-white dark:bg-gray-800">
           {/* Parent message */}
           <div className="mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
             <Message message={parentMessage} showDate={false} isThreadReply={false} />
@@ -117,7 +142,7 @@ export default function ThreadModal({ isOpen, onClose, parentMessage, threadRepl
               {threadReplies
                 .filter(reply => reply.ts !== parentMessage.ts)
                 .map((reply) => (
-                  <div key={reply.ts} className="pl-0">
+                  <div key={reply.ts} id={`message-${reply.ts}`} className="pl-0">
                     <Message
                       message={reply}
                       showDate={false}

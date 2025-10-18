@@ -1,7 +1,7 @@
 import { formatTimestamp } from "@/lib/utils"
 import MessageContent from "./message-content"
 import Notes from "./notes"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import ThreadModal from "./thread-modal"
 
 interface MessageProps {
@@ -11,9 +11,14 @@ interface MessageProps {
   threadPreview?: { lastReplyTs: string, uniqueUsers: { userId: string, userProfile: any }[] }
   isThreadReply?: boolean
   channelName?: string
+  // New: when true, auto-open this message's thread (used when arriving from search)
+  openThreadOnMount?: boolean
+  // New: specific reply to scroll to inside the thread modal
+  targetReplyTs?: string
 }
 
-export default function Message({ message, showDate = false, threadReplyCount = 0, threadPreview, isThreadReply = false, channelName = "" }: MessageProps) {const [showThreadModal, setShowThreadModal] = useState(false)
+export default function Message({ message, showDate = false, threadReplyCount = 0, threadPreview, isThreadReply = false, channelName = "", openThreadOnMount = false, targetReplyTs }: MessageProps) {
+  const [showThreadModal, setShowThreadModal] = useState(false)
   const [threadReplies, setThreadReplies] = useState<any[]>([])
   const [loadingThread, setLoadingThread] = useState(false)
 
@@ -39,6 +44,15 @@ export default function Message({ message, showDate = false, threadReplyCount = 
       setLoadingThread(false)
     }
   }
+
+  // Auto-open thread when requested (e.g., from search deep link)
+  useEffect(() => {
+    if (openThreadOnMount && !showThreadModal) {
+      loadThreadReplies()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openThreadOnMount])
+
   const timestamp = formatTimestamp(message.ts)
   const userProfile = message.user_profile || {}
   const displayName = userProfile.display_name || userProfile.real_name || "Unknown User"
@@ -56,7 +70,9 @@ export default function Message({ message, showDate = false, threadReplyCount = 
       computedDisplayName: displayName,
       userProfile
     })
-  }  return (
+  }
+
+  return (
     <>
       <div className={`flex items-start space-x-3 group ${isThreadReply ? 'ml-0 mt-2' : ''} max-w-full`}>
         <div className="flex-shrink-0">
@@ -76,13 +92,15 @@ export default function Message({ message, showDate = false, threadReplyCount = 
           <MessageContent message={message} />
           
           {/* Personal Notes */}
-          <Notes message={message} />          {/* Thread preview button - only show on parent messages with replies */}
+          <Notes message={message} />
+          {/* Thread preview button - only show on parent messages with replies */}
           {threadReplyCount > 0 && !isThreadReply && (
             <button
               onClick={loadThreadReplies}
               disabled={loadingThread}
               className="mt-2 flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50"
-            >              <div className="flex -space-x-1">
+            >
+              <div className="flex -space-x-1">
                 {/* Show real avatars from thread preview data */}
                 {threadPreview?.uniqueUsers && threadPreview.uniqueUsers.length > 0 ? (
                   threadPreview.uniqueUsers.map((user, index) => (
@@ -124,6 +142,7 @@ export default function Message({ message, showDate = false, threadReplyCount = 
         parentMessage={message}
         threadReplies={threadReplies}
         channelName={channelName}
+        targetReplyTs={targetReplyTs}
       />
     </>
   )
