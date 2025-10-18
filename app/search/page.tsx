@@ -36,6 +36,17 @@ export default function SearchPage() {
     }
   }
 
+  const buildResultHref = (result: any) => {
+    const isThreadReply = result.thread_ts && result.thread_ts !== result.ts
+    const basePath = result.channelType === "channel" ? `/channel/${result.channelId}` : `/dm/${result.channelId}`
+    if (isThreadReply) {
+      const parentTs = result.thread_ts
+      const replyTs = result.ts
+      return `${basePath}?messageTs=${parentTs}&openThread=1&replyTs=${replyTs}`
+    }
+    return `${basePath}?messageTs=${result.ts}`
+  }
+
   return (
     <div className="flex flex-col h-full p-4">
       <h1 className="text-2xl font-bold mb-4">Search Archive</h1>
@@ -71,23 +82,22 @@ export default function SearchPage() {
                 className="border rounded-md overflow-hidden hover:shadow-md transition-shadow dark:border-gray-700"
               >
                 <div className="bg-gray-50 p-2 border-b dark:bg-gray-800 dark:border-gray-700">
-                  <Link
-                    href={
-                      result.channelType === "channel"
-                        ? `/channel/${result.channelId}?messageTs=${result.ts}`
-                        : `/dm/${result.channelId}?messageTs=${result.ts}`
-                    }
-                    className="text-sm text-[#1264A3] hover:underline dark:text-[#89b3d6]"
-                  >
-                    {result.channelName} • {new Date(Number.parseFloat(result.ts) * 1000).toLocaleString()}
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={buildResultHref(result)}
+                      className="text-sm text-[#1264A3] hover:underline dark:text-[#89b3d6]"
+                    >
+                      {result.channelName} • {new Date(Number.parseFloat(result.ts) * 1000).toLocaleString()}
+                    </Link>
+                    {result.thread_ts && result.thread_ts !== result.ts && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                        Thread message
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <Link
-                  href={
-                    result.channelType === "channel"
-                      ? `/channel/${result.channelId}?messageTs=${result.ts}`
-                      : `/dm/${result.channelId}?messageTs=${result.ts}`
-                  }
+                  href={buildResultHref(result)}
                   className="block hover:bg-gray-50 dark:hover:bg-gray-800/50 p-2"
                 >
                   <Message message={result} showDate={false} />

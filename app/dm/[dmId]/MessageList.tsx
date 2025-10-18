@@ -22,6 +22,20 @@ export default function MessageList({ dmId, messagesByDate, threadCounts, dmName
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
   const searchParams = useSearchParams()
   const messageTs = searchParams.get("messageTs")
+  const openThread = searchParams.get("openThread") === "1"
+  const replyTs = searchParams.get("replyTs") || undefined
+
+  // Helper to scroll with an offset so the message sits below the header comfortably
+  const scrollMessageIntoViewWithOffset = (container: HTMLElement, el: HTMLElement, offset = 148) => {
+    let y = 0
+    let node: HTMLElement | null = el
+    while (node && node !== container) {
+      y += node.offsetTop
+      node = node.offsetParent as HTMLElement | null
+    }
+    const targetTop = Math.max(0, y - offset)
+    container.scrollTo({ top: targetTop, behavior: "smooth" })
+  }
 
   // Simulate loading for better UX
   useEffect(() => {
@@ -44,12 +58,25 @@ export default function MessageList({ dmId, messagesByDate, threadCounts, dmName
       setTimeout(() => {
         const messageElement = document.getElementById(`message-${messageTs}`)
         if (messageElement) {
-          messageElement.scrollIntoView({ behavior: "smooth", block: "center" })
+          // Scroll with a slightly larger offset and then re-assert after short delays
+          scrollMessageIntoViewWithOffset(containerRef.current!, messageElement as HTMLElement, 156)
+          setTimeout(() => {
+            const el = document.getElementById(`message-${messageTs}`)
+            if (containerRef.current && el) {
+              scrollMessageIntoViewWithOffset(containerRef.current, el as HTMLElement, 156)
+            }
+          }, 450)
+          setTimeout(() => {
+            const el = document.getElementById(`message-${messageTs}`)
+            if (containerRef.current && el) {
+              scrollMessageIntoViewWithOffset(containerRef.current, el as HTMLElement, 156)
+            }
+          }, 1000)
         } else {
           // If message not found, scroll to bottom
           containerRef.current!.scrollTop = containerRef.current!.scrollHeight
         }
-      }, 100)
+      }, 250)
     } else if (containerRef.current) {
       // No specific message to highlight, scroll to bottom
       containerRef.current.scrollTop = containerRef.current.scrollHeight
@@ -94,6 +121,9 @@ export default function MessageList({ dmId, messagesByDate, threadCounts, dmName
                   // Get thread reply count for this message
                   const threadReplyCount = threadCounts[message.ts] || 0
                   
+                  const isTargetParent = messageTs === message.ts
+                  const shouldAutoOpenThread = !!(isTargetParent && openThread && threadReplyCount > 0)
+                  
                   return (
                     <div
                       key={message.ts}
@@ -109,6 +139,8 @@ export default function MessageList({ dmId, messagesByDate, threadCounts, dmName
                         showDate={false}
                         threadReplyCount={threadReplyCount}
                         channelName={dmName}
+                        openThreadOnMount={shouldAutoOpenThread}
+                        targetReplyTs={replyTs}
                       />
                     </div>
                   )
