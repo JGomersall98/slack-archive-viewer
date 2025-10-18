@@ -8,10 +8,12 @@ import { MessageLoading } from "@/components/message-loading"
 interface MessageListProps {
   channelId: string
   messagesByDate: Record<string, any[]>
+  threadCounts: Record<string, number>
+  threadPreviews: Record<string, { lastReplyTs: string, uniqueUsers: { userId: string, userProfile: any }[] }>
   channelName: string
 }
 
-export default function MessageList({ channelId, messagesByDate, channelName }: MessageListProps) {
+export default function MessageList({ channelId, messagesByDate, threadCounts, threadPreviews, channelName }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
@@ -57,9 +59,8 @@ export default function MessageList({ channelId, messagesByDate, channelName }: 
 
   // Sort dates in ascending order (oldest first)
   const sortedDates = Object.keys(messagesByDate).sort()
-
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto p-4">
+    <div ref={containerRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4">
       {sortedDates.length === 0 ? (
         <div className="flex items-center justify-center h-full">
           <p className="text-gray-500">No messages in this channel</p>
@@ -84,22 +85,31 @@ export default function MessageList({ channelId, messagesByDate, channelName }: 
                   })}
                 </span>
                 <div className="h-px bg-gray-200 flex-1"></div>
-              </div>
-
-              <div className="space-y-4">
-                {sortedMessages.map((message) => (
-                  <div
-                  key={message.ts}
-                  id={`message-${message.ts}`}
-                  className={`${
-                    highlightedMessageId === message.ts
-                      ? "bg-yellow-50 dark:bg-yellow-900 border-l-4 border-yellow-400 dark:border-yellow-300 pl-3 -ml-4 pr-1 py-2 rounded"
-                      : ""
-                  }`}
-                >
-                  <Message message={message} showDate={false} />
-                </div>
-                ))}
+              </div>              <div className="space-y-4">                {sortedMessages.map((message) => {
+                  // Get thread reply count for this message
+                  const threadReplyCount = threadCounts[message.ts] || 0
+                  const threadPreview = threadPreviews[message.ts]
+                  
+                  return (
+                    <div
+                      key={message.ts}
+                      id={`message-${message.ts}`}
+                      className={`${
+                        highlightedMessageId === message.ts
+                          ? "bg-yellow-50 dark:bg-yellow-900 border-l-4 border-yellow-400 dark:border-yellow-300 pl-3 -ml-4 pr-1 py-2 rounded"
+                          : ""
+                      }`}
+                    >
+                      <Message 
+                        message={message} 
+                        showDate={false}
+                        threadReplyCount={threadReplyCount}
+                        threadPreview={threadPreview}
+                        channelName={channelName}
+                      />
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )

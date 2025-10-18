@@ -29,9 +29,20 @@ export interface MessageType {
     }[]
   }[]
   attachments?: any[]
+  // Thread-related fields
+  thread_ts?: string
+  reply_count?: number
+  replies?: any[]
+  parent_user_id?: string  // Additional fields for our app
   channelId?: string
   channelName?: string
   channelType?: "channel" | "dm"
+  // Personal notes system
+  personal_note?: {
+    content: string
+    created_at: string
+    updated_at: string
+  }
 }
 
 export interface ChannelInfo {

@@ -1,5 +1,6 @@
 import fs from "fs"
 import path from "path"
+import { logToFile } from "./logger"
 import type { MessageType, ChannelInfo } from "./types"
 
 // Base directory for Slack data
@@ -29,15 +30,29 @@ export async function getChannelList(): Promise<ChannelInfo[]> {
       const sameNameSubdir = fs.existsSync(path.join(dirPath, dir))
 
       if (sameNameSubdir) {
-        // This is a case like dc-developers/dc-developers/
-        channels.push({
-          id: dir, // Use the directory name as the channel ID
-          name: dir.toLowerCase().replace(/\s+/g, "-"),
-          displayName: dir,
-          type: "channel", // Assume it's a channel
-        })
+        const innerPath = path.join(dirPath, dir)
+        
+        // Look for actual channel/DM directories (like C02LBGZKLP4, D07ENPUC1RV)
+        const innerDirs = fs
+          .readdirSync(innerPath, { withFileTypes: true })
+          .filter((dirent) => dirent.isDirectory())
+          .map((dirent) => dirent.name)
+
+        for (const innerDir of innerDirs) {
+          // Skip system directories
+          if (innerDir.startsWith('__') || innerDir.startsWith('.')) continue
+          
+          const type = innerDir.startsWith("C") ? "channel" : "dm"
+          
+          channels.push({
+            id: innerDir, // Use the actual Slack channel/DM ID
+            name: dir.toLowerCase().replace(/\s+/g, "-"),
+            displayName: dir,
+            type,
+          })
+        }
       } else {
-        // Check for subdirectories (original behavior)
+        // Check for subdirectories (original behavior for other structures)
         const innerDirs = fs
           .readdirSync(dirPath, { withFileTypes: true })
           .filter((dirent) => dirent.isDirectory())
@@ -57,6 +72,7 @@ export async function getChannelList(): Promise<ChannelInfo[]> {
       }
     }
 
+    console.log(`[Data] Discovered ${channels.length} channels`)
     return channels
   } catch (error) {
     console.error("Error getting channel list:", error)
@@ -76,45 +92,45 @@ export async function getChannelMessages(channelId: string): Promise<MessageType
     // Find the directory containing this channel
     const allChannels = await getChannelList()
     const channelInfo = allChannels.find((c) => c.id === channelId)
-
-    if (!channelInfo) {
+      if (!channelInfo) {
+      console.error(`[Data] Channel not found: ${channelId}`)
       return []
     }
 
-    let channelDir: string
+    // Find the channel directory
+    let channelDir: string | null = null
+    
+    // Look in all parent directories for this channel ID
+    const directories = fs
+      .readdirSync(DATA_DIR, { withFileTypes: true })
+      .filter((dirent) => dirent.isDirectory())
+      .map((dirent) => dirent.name)
 
-    // Check if this is a case where the folder structure is parent_dir/parent_dir/<.json files>
-    if (fs.existsSync(path.join(DATA_DIR, channelId, channelId))) {
-      channelDir = path.join(DATA_DIR, channelId, channelId)
-    } else {
-      // Find the parent directory (original behavior)
-      const directories = fs
-        .readdirSync(DATA_DIR, { withFileTypes: true })
-        .filter((dirent) => dirent.isDirectory())
-        .map((dirent) => dirent.name)
-
-      let parentDir = ""
-      for (const dir of directories) {
-        const innerDirs = fs
-          .readdirSync(path.join(DATA_DIR, dir), { withFileTypes: true })
-          .filter((dirent) => dirent.isDirectory())
-          .map((dirent) => dirent.name)
-
-        if (innerDirs.includes(channelId)) {
-          parentDir = dir
+    for (const dir of directories) {
+      const possiblePaths = [
+        path.join(DATA_DIR, dir, dir, channelId), // format: parent/parent/channelId
+        path.join(DATA_DIR, dir, channelId),      // format: parent/channelId
+      ]
+      
+      for (const possiblePath of possiblePaths) {
+        if (fs.existsSync(possiblePath)) {
+          channelDir = possiblePath
           break
         }
       }
-
-      if (!parentDir) {
-        return []
-      }
-
-      channelDir = path.join(DATA_DIR, parentDir, channelId)
+      
+      if (channelDir) break
+    }    if (!channelDir) {
+      console.error(`[Data] Channel directory not found for: ${channelId}`)
+      return []
     }
 
-    // Read all JSON files in the channel directory
-    const jsonFiles = fs.readdirSync(channelDir).filter((file) => file.endsWith(".json"))
+    // Read all JSON files in the channel directory (skip metadata files)
+    const allFiles = fs.readdirSync(channelDir)
+    const jsonFiles = allFiles.filter((file) => 
+      file.endsWith(".json") && 
+      !["channels.json", "dms.json", "groups.json", "mpims.json", "users.json"].includes(file)
+    )
 
     let allMessages: MessageType[] = []
 
@@ -126,7 +142,7 @@ export async function getChannelMessages(channelId: string): Promise<MessageType
         // Trim any whitespace or unexpected characters at the end of the file
         const cleanedContent = fileContent.trim()
 
-        const messages: MessageType[] = JSON.parse(cleanedContent)
+        const messages: MessageType[] = JSON.parse(cleanedContent)        // Removed excessive logging
 
         // Add channel info to each message
         const messagesWithChannel = messages.map((msg) => ({
@@ -136,18 +152,107 @@ export async function getChannelMessages(channelId: string): Promise<MessageType
           channelType: channelInfo.type,
         }))
 
-        allMessages = [...allMessages, ...messagesWithChannel]
-      } catch (fileError) {
-        console.error(`Error parsing JSON file ${file}:`, fileError)
+        allMessages = [...allMessages, ...messagesWithChannel]      } catch (fileError) {
+        console.error(`[Data] Error parsing JSON file ${file}:`, fileError)
         // Continue with other files even if one fails
       }
     }
 
     // Sort messages by timestamp (newest first)
-    return allMessages.sort((a, b) => Number.parseFloat(b.ts) - Number.parseFloat(a.ts))
-  } catch (error) {
-    console.error(`Error getting messages for channel ${channelId}:`, error)
+    return allMessages.sort((a, b) => Number.parseFloat(b.ts) - Number.parseFloat(a.ts))  } catch (error) {
+    console.error(`[Data] Error getting messages for channel ${channelId}:`, error)
     return []
+  }
+}
+
+// Group messages into threads (lightweight - only identify parents)
+export async function groupMessagesIntoThreads(messages: MessageType[]): Promise<{ parentMessages: MessageType[], threadCounts: Record<string, number>, threadPreviews: Record<string, { lastReplyTs: string, uniqueUsers: { userId: string, userProfile: any }[] }> }> {
+  const threadCounts: Record<string, number> = {}
+  const threadPreviews: Record<string, { lastReplyTs: string, uniqueUsers: { userId: string, userProfile: any }[] }> = {}
+  const parentMessages: MessageType[] = []
+
+  // First pass: count thread replies and collect preview data
+  for (const message of messages) {
+    if (message.thread_ts && message.thread_ts !== message.ts) {
+      // This is a reply in a thread
+      threadCounts[message.thread_ts] = (threadCounts[message.thread_ts] || 0) + 1
+      
+      // Track preview data
+      if (!threadPreviews[message.thread_ts]) {
+        threadPreviews[message.thread_ts] = {
+          lastReplyTs: message.ts,
+          uniqueUsers: []
+        }
+      }
+      
+      // Update last reply timestamp
+      if (Number.parseFloat(message.ts) > Number.parseFloat(threadPreviews[message.thread_ts].lastReplyTs)) {
+        threadPreviews[message.thread_ts].lastReplyTs = message.ts
+      }
+      
+      // Add unique users with their profiles (excluding the parent message author)
+      if (!threadPreviews[message.thread_ts].uniqueUsers.some(u => u.userId === message.user)) {
+        threadPreviews[message.thread_ts].uniqueUsers.push({
+          userId: message.user,
+          userProfile: message.user_profile
+        })
+      }
+    } else {
+      // This is either a standalone message or a thread parent
+      parentMessages.push(message)
+    }
+  }
+
+  // Limit unique users to first 2 for display and filter out original poster
+  Object.keys(threadPreviews).forEach(threadId => {
+    const parentMessage = parentMessages.find(msg => msg.ts === threadId)
+    const parentUserId = parentMessage?.user
+    
+    threadPreviews[threadId].uniqueUsers = threadPreviews[threadId].uniqueUsers
+      .filter(u => u.userId !== parentUserId) // Exclude original poster
+      .slice(0, 2) // Show max 2 avatars
+  })
+  console.log(`[Data] Thread grouping: ${parentMessages.length} parents, ${Object.keys(threadCounts).length} threads`)
+
+  return { parentMessages, threadCounts, threadPreviews }
+}
+
+// New function to get thread replies on-demand
+export async function getThreadReplies(channelId: string, threadTs: string): Promise<MessageType[]> {
+  try {
+    // Get all messages for the channel
+    const allMessages = await getChannelMessages(channelId)
+    
+    // Filter for replies to this specific thread
+    const threadReplies = allMessages.filter(msg => 
+      msg.thread_ts === threadTs && msg.ts !== threadTs
+    )    // Sort by timestamp (oldest first)
+    threadReplies.sort((a, b) => Number.parseFloat(a.ts) - Number.parseFloat(b.ts))
+
+    return threadReplies
+  } catch (error) {
+    console.error(`[Data] Error getting thread replies for ${threadTs}:`, error)
+    return []
+  }
+}
+
+// Get user profiles for thread previews
+export async function getUserProfiles(channelId: string, userIds: string[]): Promise<Record<string, any>> {
+  try {
+    const allMessages = await getChannelMessages(channelId)
+    const userProfiles: Record<string, any> = {}
+    
+    // Extract user profiles from messages
+    for (const msg of allMessages) {
+      if (msg.user && userIds.includes(msg.user) && msg.user_profile) {
+        userProfiles[msg.user] = msg.user_profile
+      }
+    }
+    
+    return userProfiles
+  } catch (error) {
+    console.error('Error getting user profiles:', error)
+    return {}
   }
 }
 

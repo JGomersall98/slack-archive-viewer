@@ -1,0 +1,134 @@
+'use client'
+
+import { X } from "lucide-react"
+import Message from "./message"
+import { useState, useRef, useEffect } from "react"
+
+interface ThreadModalProps {
+  isOpen: boolean
+  onClose: () => void
+  parentMessage: any
+  threadReplies: any[]
+  channelName: string
+}
+
+export default function ThreadModal({ isOpen, onClose, parentMessage, threadReplies, channelName }: ThreadModalProps) {
+  const [width, setWidth] = useState(384) // Default width (w-96)
+  const [isResizing, setIsResizing] = useState(false)
+  const resizeRef = useRef<HTMLDivElement>(null)
+
+  // Handle mouse resize
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return
+      
+      const newWidth = window.innerWidth - e.clientX
+      // Constrain width between 300px and 60% of screen width
+      const minWidth = 300
+      const maxWidth = window.innerWidth * 0.6
+      const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth))
+      
+      setWidth(constrainedWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+    }
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isResizing])
+
+  // Responsive width adjustments
+  useEffect(() => {
+    const handleResize = () => {
+      const screenWidth = window.innerWidth
+      if (screenWidth < 768) {
+        // Mobile: full width
+        setWidth(screenWidth)
+      } else if (screenWidth < 1024) {
+        // Tablet: 50% width
+        setWidth(Math.min(width, screenWidth * 0.5))
+      } else {
+        // Desktop: constrain to max 60%
+        setWidth(Math.min(width, screenWidth * 0.6))
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [width])
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      {/* Backdrop - only covers left side */}
+      <div 
+        className="flex-1 bg-black bg-opacity-30" 
+        onClick={onClose} 
+      />
+      
+      {/* Resize handle */}
+      <div
+        ref={resizeRef}
+        className="w-1 bg-gray-300 dark:bg-gray-600 hover:bg-blue-500 dark:hover:bg-blue-400 cursor-col-resize transition-colors duration-200 hidden md:block"
+        onMouseDown={() => setIsResizing(true)}
+      />
+      
+      {/* Thread panel - responsive width */}
+      <div 
+        className="h-full bg-white dark:bg-gray-800 shadow-2xl flex flex-col border-l border-gray-200 dark:border-gray-700"
+        style={{ width: `${width}px` }}
+      >
+        {/* Header */}
+        <div className="border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between bg-white dark:bg-gray-800">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Thread</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">#{channelName}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>        {/* Thread content */}
+        <div className="flex-1 overflow-y-auto p-4 bg-white dark:bg-gray-800">
+          {/* Parent message */}
+          <div className="mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
+            <Message message={parentMessage} showDate={false} isThreadReply={false} />
+          </div>
+
+          {/* Replies - filter out the parent message if it appears in replies */}
+          {threadReplies.length > 0 && (
+            <div className="space-y-4">
+              {threadReplies
+                .filter(reply => reply.ts !== parentMessage.ts)
+                .map((reply) => (
+                  <div key={reply.ts} className="pl-0">
+                    <Message
+                      message={reply}
+                      showDate={false}
+                      isThreadReply={true}
+                    />
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
