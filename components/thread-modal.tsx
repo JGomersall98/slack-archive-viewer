@@ -94,6 +94,30 @@ export default function ThreadModal({ isOpen, onClose, parentMessage, threadRepl
     return () => clearTimeout(timer)
   }, [isOpen, targetReplyTs, threadReplies])
 
+  // When the thread is open, shift the main content by the panel width.
+  // We do this by toggling a body class and setting a CSS variable that CSS can consume.
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add('thread-open')
+      document.body.style.setProperty('--thread-panel-width', `${width}px`)
+    } else {
+      document.body.classList.remove('thread-open')
+      document.body.style.removeProperty('--thread-panel-width')
+    }
+
+    // Cleanup just in case component unmounts while open
+    return () => {
+      document.body.classList.remove('thread-open')
+      document.body.style.removeProperty('--thread-panel-width')
+    }
+  }, [isOpen])
+
+  // Keep the CSS variable in sync while resizing the panel
+  useEffect(() => {
+    if (!isOpen) return
+    document.body.style.setProperty('--thread-panel-width', `${width}px`)
+  }, [width, isOpen])
+
   if (!isOpen) return null
 
   return (

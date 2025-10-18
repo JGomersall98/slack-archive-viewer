@@ -22,7 +22,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark">
           <NotesProvider>
-            <div className="flex h-screen overflow-hidden bg-white dark:bg-[#1A1D21]">
+            <div className="flex h-screen overflow-hidden bg-white dark:bg-[#1A1D21] app-shell">
               <Sidebar />
               <main className="flex-1 overflow-auto dark:text-white">{children}</main>
             </div>

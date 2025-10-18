@@ -6,6 +6,8 @@
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;
+  /* Fallback width if JS hasn't set it yet */
+  --thread-panel-width: 384px;
 }
 
 body {
@@ -145,3 +147,16 @@ input[type="range"]:focus::-webkit-slider-thumb {
 input[type="range"]:focus::-moz-range-thumb {
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
 }
+
+/* Layout adjustments when thread panel is open */
+.app-shell {
+  transition: padding-right 150ms ease-in-out;
+}
+
+/* When thread is open, reduce the available space for the main area by adding right padding equal to the panel width. */
+body.thread-open .app-shell {
+  padding-right: var(--thread-panel-width);
+}
+
+/* Ensure the thread modal itself stays fixed above but does not overlap the padding-created space visually */
+/* No extra styles needed for the modal, it is already position: fixed; */
