@@ -7,6 +7,7 @@ import { Search, Hash, MessageSquare, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ThemeToggle } from "@/components/theme-toggle"
+import SidebarLogo from "@/components/sidebar-logo"
 
 type Channel = {
   id: string
@@ -51,10 +52,14 @@ export default function Sidebar() {
 
   const filteredDms = dms.filter((dm) => dm.displayName.toLowerCase().includes(filter.toLowerCase()))
 
-  return (
-    <div className="w-60 bg-[#3F0E40] dark:bg-[#19171D] text-white flex flex-col h-full">
-      <div className="p-3 border-b border-[#522653] flex items-center justify-between">
-        <h1 className="font-bold text-lg">Slack Archive</h1>
+  return (    <div className="w-60 bg-[#3F0E40] dark:bg-[#19171D] text-white flex flex-col h-full">      <div className="p-3 border-b border-[#522653] flex items-center justify-between">        <Link href="/" className="flex items-center">
+          <SidebarLogo 
+            src="/logos/Slack_icon_2019.svg" 
+            alt="Slack" 
+            className="h-6 w-6 mr-2"
+          />
+          <span className="font-bold text-lg">Archive</span>
+        </Link>
       </div>
 
       <div className="p-3">
