@@ -20,7 +20,6 @@ export default function ThreadModal({ isOpen, onClose, parentMessage, threadRepl
   const resizeRef = useRef<HTMLDivElement>(null)
   // Container for scrolling inside modal
   const contentRef = useRef<HTMLDivElement>(null)
-
   // Handle mouse resize
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -33,6 +32,8 @@ export default function ThreadModal({ isOpen, onClose, parentMessage, threadRepl
       const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth))
       
       setWidth(constrainedWidth)
+      // Update CSS variable immediately during resize for smoother experience
+      document.body.style.setProperty('--thread-panel-width', `${constrainedWidth}px`)
     }
 
     const handleMouseUp = () => {
@@ -53,20 +54,27 @@ export default function ThreadModal({ isOpen, onClose, parentMessage, threadRepl
       document.body.style.userSelect = ''
     }
   }, [isResizing])
-
   // Responsive width adjustments
   useEffect(() => {
     const handleResize = () => {
       const screenWidth = window.innerWidth
+      let newWidth = width
+      
       if (screenWidth < 768) {
         // Mobile: full width
-        setWidth(screenWidth)
+        newWidth = screenWidth
       } else if (screenWidth < 1024) {
         // Tablet: 50% width
-        setWidth(Math.min(width, screenWidth * 0.5))
+        newWidth = Math.min(width, screenWidth * 0.5)
       } else {
         // Desktop: constrain to max 60%
-        setWidth(Math.min(width, screenWidth * 0.6))
+        newWidth = Math.min(width, screenWidth * 0.6)
+      }
+      
+      if (newWidth !== width) {
+        setWidth(newWidth)
+        // Update CSS variable immediately for responsive changes
+        document.body.style.setProperty('--thread-panel-width', `${newWidth}px`)
       }
     }
 
@@ -92,7 +100,57 @@ export default function ThreadModal({ isOpen, onClose, parentMessage, threadRepl
     }, 100)
 
     return () => clearTimeout(timer)
-  }, [isOpen, targetReplyTs, threadReplies])
+  }, [isOpen, targetReplyTs, threadReplies])  // When the thread is open, shift the main content by the panel width.
+  // We do this by toggling a body class and setting a CSS variable that CSS can consume.
+  useEffect(() => {
+    if (isOpen) {
+      // Update CSS variable when width changes (during resize)
+      document.body.style.setProperty('--thread-panel-width', `${width}px`)
+    } else {
+      document.body.classList.remove('thread-open')
+      document.body.style.removeProperty('--thread-panel-width')
+    }
+
+    // Cleanup just in case component unmounts while open
+    return () => {
+      document.body.classList.remove('thread-open')
+      document.body.style.removeProperty('--thread-panel-width')
+    }
+  }, [isOpen, width])
+  // Immediate width calculation when modal opens
+  useEffect(() => {
+    if (!isOpen) return
+    
+    const setupWidth = () => {
+      const screenWidth = window.innerWidth
+      let appropriateWidth = width
+      
+      if (screenWidth < 768) {
+        // Mobile: full width
+        appropriateWidth = screenWidth
+      } else if (screenWidth < 1024) {
+        // Tablet: 50% width
+        appropriateWidth = Math.min(width, screenWidth * 0.5)
+      } else {
+        // Desktop: constrain to max 60%
+        appropriateWidth = Math.min(width, screenWidth * 0.6)
+      }
+      
+      // Ensure minimum width
+      appropriateWidth = Math.max(300, appropriateWidth)
+      
+      if (appropriateWidth !== width) {
+        setWidth(appropriateWidth)
+      }
+      
+      // Force immediate CSS variable update
+      document.body.style.setProperty('--thread-panel-width', `${appropriateWidth}px`)
+      document.body.classList.add('thread-open')
+    }
+    
+    // Use requestAnimationFrame to ensure DOM is ready
+    requestAnimationFrame(setupWidth)
+  }, [isOpen]) // Only depend on isOpen, not width
 
   if (!isOpen) return null
 
@@ -110,10 +168,9 @@ export default function ThreadModal({ isOpen, onClose, parentMessage, threadRepl
         className="w-1 bg-gray-300 dark:bg-gray-600 hover:bg-blue-500 dark:hover:bg-blue-400 cursor-col-resize transition-colors duration-200 hidden md:block"
         onMouseDown={() => setIsResizing(true)}
       />
-      
-      {/* Thread panel - responsive width */}
+        {/* Thread panel - responsive width */}
       <div 
-        className="h-full bg-white dark:bg-gray-800 shadow-2xl flex flex-col border-l border-gray-200 dark:border-gray-700"
+        className="h-full bg-white dark:bg-gray-800 shadow-2xl flex flex-col border-l border-gray-200 dark:border-gray-700 thread-panel"
         style={{ width: `${width}px` }}
       >
         {/* Header */}

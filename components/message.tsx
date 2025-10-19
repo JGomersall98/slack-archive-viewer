@@ -15,9 +15,12 @@ interface MessageProps {
   openThreadOnMount?: boolean
   // New: specific reply to scroll to inside the thread modal
   targetReplyTs?: string
+  // New: uploads existence check result from parent
+  uploadsExist?: boolean
+  userDir?: string
 }
 
-export default function Message({ message, showDate = false, threadReplyCount = 0, threadPreview, isThreadReply = false, channelName = "", openThreadOnMount = false, targetReplyTs }: MessageProps) {
+export default function Message({ message, showDate = false, threadReplyCount = 0, threadPreview, isThreadReply = false, channelName = "", openThreadOnMount = false, targetReplyTs, uploadsExist, userDir }: MessageProps) {
   const [showThreadModal, setShowThreadModal] = useState(false)
   const [threadReplies, setThreadReplies] = useState<any[]>([])
   const [loadingThread, setLoadingThread] = useState(false)
@@ -89,7 +92,7 @@ export default function Message({ message, showDate = false, threadReplyCount = 
             <span className="font-medium text-gray-900 dark:text-white">{displayName}</span>
             <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{timestamp}</span>
           </div>
-          <MessageContent message={message} />
+          <MessageContent message={message} uploadsExist={uploadsExist} userDir={userDir} />
           
           {/* Personal Notes */}
           <Notes message={message} />
