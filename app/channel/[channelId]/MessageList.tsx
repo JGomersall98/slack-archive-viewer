@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, usePathname } from "next/navigation"
 import Message from "@/components/message"
 import { MessageLoading } from "@/components/message-loading"
+import { useUploadsCheck } from "@/hooks/use-uploads-check"
 
 interface MessageListProps {
   channelId: string
@@ -18,9 +19,40 @@ export default function MessageList({ channelId, messagesByDate, threadCounts, t
   const [isLoading, setIsLoading] = useState(true)
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
   const searchParams = useSearchParams()
+  const pathname = usePathname()
   const messageTs = searchParams.get("messageTs")
   const openThread = searchParams.get("openThread") === "1"
   const replyTs = searchParams.get("replyTs") || undefined
+
+  // Extract userDir from pathname for uploads check
+  const getUserDirFromPath = () => {
+    try {
+      const parts = pathname.split("/")
+      // For channels: /channel/[channelId] - we need to get userDir from somewhere else
+      // Let's check if we can extract it from the data structure or use a fallback
+      
+      // For now, let's extract from the first message if available
+      const firstDateMessages = Object.values(messagesByDate)[0]
+      if (firstDateMessages && firstDateMessages.length > 0) {
+        // Try to get from message data if available
+        const firstMessage = firstDateMessages[0]
+        if (firstMessage.userDir) {
+          return firstMessage.userDir
+        }
+        // Fallback: try to extract from user profile or use channel name
+        return channelName || "Unknown"
+      }
+      return channelName || "Unknown"
+    } catch (e) {
+      console.error("Error extracting userDir:", e)
+      return "Unknown"
+    }
+  }
+
+  const userDir = getUserDirFromPath()
+  
+  // Check uploads existence once for the entire channel
+  const { uploadsExist, isChecking: isCheckingUploads } = useUploadsCheck(userDir, channelId)
 
   // Helper to scroll with an offset so the message sits below the header comfortably
   const scrollMessageIntoViewWithOffset = (container: HTMLElement, el: HTMLElement, offset = 148) => {
@@ -132,8 +164,7 @@ export default function MessageList({ channelId, messagesByDate, threadCounts, t
                           ? "bg-yellow-50 dark:bg-yellow-900 border-l-4 border-yellow-400 dark:border-yellow-300 pl-3 -ml-4 pr-1 py-2 rounded"
                           : ""
                       }`}
-                    >
-                      <Message 
+                    >                      <Message 
                         message={message} 
                         showDate={false}
                         threadReplyCount={threadReplyCount}
@@ -141,6 +172,8 @@ export default function MessageList({ channelId, messagesByDate, threadCounts, t
                         channelName={channelName}
                         openThreadOnMount={shouldAutoOpenThread}
                         targetReplyTs={replyTs}
+                        uploadsExist={uploadsExist}
+                        userDir={userDir}
                       />
                     </div>
                   )

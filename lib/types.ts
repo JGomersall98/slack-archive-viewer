@@ -29,6 +29,7 @@ export interface MessageType {
     }[]
   }[]
   attachments?: any[]
+  files?: any[]
   // Thread-related fields
   thread_ts?: string
   reply_count?: number
@@ -37,6 +38,7 @@ export interface MessageType {
   channelId?: string
   channelName?: string
   channelType?: "channel" | "dm"
+  dmName?: string
   // Personal notes system
   personal_note?: {
     content: string

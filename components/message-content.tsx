@@ -8,6 +8,8 @@ import ImageLightbox from "./image-lightbox";
 
 interface MessageContentProps {
   message: MessageType;
+  uploadsExist?: boolean;
+  userDir?: string;
 }
 
 /**
@@ -50,7 +52,7 @@ function renderSubElements(elements: any[]) {
   });
 }
 
-export default function MessageContent({ message }: MessageContentProps) {
+export default function MessageContent({ message, uploadsExist = false, userDir }: MessageContentProps) {
   const { text, blocks, files } = message;
   const pathname = usePathname();
   const [imageError, setImageError] = useState<Record<string, boolean>>({});
@@ -58,72 +60,13 @@ export default function MessageContent({ message }: MessageContentProps) {
     null
   );
 
-  // Extract conversation directory from the URL path
-  const getConversationNameFromPath = () => {
-    // For DMs: /dm/[dmId]
-    // For channels: /channel/[channelId]
-
-    try {
-      const parts = pathname.split("/");
-      const type = parts[1]; // "dm" or "channel"
-      const id = parts[2]; // the ID
-
-      if (type === "dm") {
-        // Try to get DM name from message
-        if (message.dmName) {
-          return message.dmName;
-        }
-
-        // Try to get from channelName (sometimes used for DMs)
-        if (message.channelName) {
-          return message.channelName;
-        }
-
-        // Try to extract from the URL - this won't work directly
-        // but at least we can log what we're looking for
-        console.log(`Looking for DM with ID: ${id}`);
-      } else if (type === "channel") {
-        // For channels, use the channel name if available
-        if (message.channelName) {
-          return message.channelName;
-        }
-        console.log(`Looking for channel with ID: ${id}`);
-      }
-    } catch (e) {
-      console.error("Error parsing path:", e);
-    }
-
-    return null;
-  };
-
-  // Function to determine the correct directory for file access
-  const getFileDirectory = () => {
-    // Get the conversation name from the path
-    const conversationName = getConversationNameFromPath();
-
-    // If we have a conversation name, use that
-    if (conversationName) {
-      return encodeURIComponent(conversationName);
-    }
-
-    // If this is a channel message, use the channel name
-    if (message.channelType === "channel" && message.channelName) {
-      return encodeURIComponent(message.channelName);
-    }
-
-    // Try to use other fields from the message
-    if (message.dmName) {
-      return encodeURIComponent(message.dmName);
-    }
-
-    // Last resort: use user's name or Unknown
-    return encodeURIComponent(message.user_profile?.real_name ?? "Unknown");
-  };
-
   // Handle image loading errors
   const handleImageError = (fileId: string) => {
     setImageError((prev) => ({ ...prev, [fileId]: true }));
   };
+
+  // Get channelId from pathname for API requests
+  const channelId = pathname.split("/").pop() || "";
 
   // 1) Render Slack "blocks" if present
   if (blocks && blocks.length > 0) {
@@ -236,32 +179,18 @@ export default function MessageContent({ message }: MessageContentProps) {
   return (
     <div className="whitespace-pre-wrap dark:text-white">
       {text}
-
       {files && files.length > 0 && (
         <div className="mt-2 space-y-2">
           {files.map((file: any) => {
             // Only display images if it's e.g. jpg/png/gif
             if (file.mimetype?.startsWith("image/")) {
-              // Get the appropriate directory for this file
-              const dirPath = getFileDirectory();
-
-              // Get the channel ID from the pathname for additional routing
-              const channelId = pathname.split("/").pop() || "";
-
-              // Create multiple possible routes to try
-              const routeUrl = `/api/files?userDir=${dirPath}&id=${
-                file.id
-              }&filename=${encodeURIComponent(
-                file.name
-              )}&channelId=${channelId}`;
-
-              // If this image already errored, show placeholder
-              if (imageError[file.id]) {
+              // If uploads don't exist, show placeholder immediately without making API request
+              if (!uploadsExist) {
                 return (
                   <div key={file.id} className="relative">
                     <img
                       src="/abstract-geometric-shapes.png"
-                      alt="Image unavailable"
+                      alt="Image unavailable - no uploads folder"
                       className="max-w-xs rounded shadow"
                     />
                     <div className="absolute bottom-2 left-2 text-xs text-white bg-black/50 px-2 py-1 rounded">
@@ -269,21 +198,48 @@ export default function MessageContent({ message }: MessageContentProps) {
                     </div>
                   </div>
                 );
-              }
+              }              // Only make API request if uploads exist
+              if (uploadsExist && userDir) {
+                // Get the appropriate directory for this file
+                const dirPath = encodeURIComponent(userDir);
 
-              return (
-                <div key={file.id} className="relative">
-                  <img
-                    src={routeUrl || "/placeholder.svg"}
-                    alt={file.name}
-                    className="max-w-xs rounded shadow cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() =>
-                      setLightbox({ src: routeUrl, alt: file.name })
-                    }
-                    onError={() => handleImageError(file.id)}
-                  />
-                </div>
-              );
+                // Create the API route URL
+                const routeUrl = `/api/files?userDir=${dirPath}&id=${
+                  file.id
+                }&filename=${encodeURIComponent(
+                  file.name
+                )}&channelId=${channelId}`;
+
+                // If this image already errored, show placeholder
+                if (imageError[file.id]) {
+                  return (
+                    <div key={file.id} className="relative">
+                      <img
+                        src="/abstract-geometric-shapes.png"
+                        alt="Image unavailable"
+                        className="max-w-xs rounded shadow"
+                      />
+                      <div className="absolute bottom-2 left-2 text-xs text-white bg-black/50 px-2 py-1 rounded">
+                        {file.name}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={file.id} className="relative">
+                    <img
+                      src={routeUrl || "/placeholder.svg"}
+                      alt={file.name}
+                      className="max-w-xs rounded shadow cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() =>
+                        setLightbox({ src: routeUrl, alt: file.name })
+                      }
+                      onError={() => handleImageError(file.id)}
+                    />
+                  </div>
+                );
+              }
             }
             return null;
           })}
