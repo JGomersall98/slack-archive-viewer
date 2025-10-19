@@ -150,7 +150,9 @@ input[type="range"]:focus::-moz-range-thumb {
 
 /* Layout adjustments when thread panel is open */
 .app-shell {
-  transition: padding-right 150ms ease-in-out;
+  transition: padding-right 200ms ease-in-out;
+  /* Ensure we start with no padding */
+  padding-right: 0;
 }
 
 /* When thread is open, reduce the available space for the main area by adding right padding equal to the panel width. */
@@ -158,5 +160,14 @@ body.thread-open .app-shell {
   padding-right: var(--thread-panel-width);
 }
 
-/* Ensure the thread modal itself stays fixed above but does not overlap the padding-created space visually */
-/* No extra styles needed for the modal, it is already position: fixed; */
+/* On mobile screens, don't apply padding as the thread takes full width */
+@media (max-width: 767px) {
+  body.thread-open .app-shell {
+    padding-right: 0;
+  }
+}
+
+/* Ensure smooth width transitions for the thread panel itself */
+.thread-panel {
+  transition: width 200ms ease-in-out;
+}
